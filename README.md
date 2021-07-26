@@ -1,2 +1,4 @@
 # XSS
-xss_scan
+Cách dùng
+
+python xss.py --url---
