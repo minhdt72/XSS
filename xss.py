@@ -57,6 +57,7 @@ def submit_form(form_details, url, value):
         # GET request
         return requests.get(target_url, params=data)
 
+
 def scan_xss(url):
         """
         Given a `url`, it prints all XSS vulnerable forms and
@@ -65,7 +66,7 @@ def scan_xss(url):
         # get all the forms from the URL
         forms = get_all_forms(url)
         print(f"[+] Detected {len(forms)} forms on {url}.")
-        js_script = "<Script>alert('hi')</scripT>"
+        js_script = open('payload.txt', 'r').readline()
         # returning value
         is_vulnerable = False
         # iterate over all forms
@@ -82,7 +83,7 @@ def scan_xss(url):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("url", help="URL")
+    parser.add_argument('url', help='URL')
     args = parser.parse_args()
     url = args.url
     print(scan_xss(url))
