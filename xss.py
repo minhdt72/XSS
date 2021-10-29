@@ -1,89 +1,70 @@
+import argparse
 import requests
-from pprint import pprint
-from bs4 import BeautifulSoup as bs
-from urllib.parse import urljoin
-def get_all_forms(url):
-    """Given a `url`, it returns all forms from the HTML content"""
-    soup = bs(requests.get(url).content, "html.parser")
-    return soup.find_all("form")
-def get_form_details(form):
-    """
-    This function extracts all possible useful information about an HTML `form`
-    """
-    details = {}
-    # get the form action (target url)
-    action = form.attrs.get("action").lower()
-    # get the form method (POST, GET, etc.)
-    method = form.attrs.get("method", "get").lower()
-    # get all the input details such as type and name
-    inputs = []
-    for input_tag in form.find_all("input"):
-        input_type = input_tag.attrs.get("type", "text")
-        input_name = input_tag.attrs.get("name")
-        inputs.append({"type": input_type, "name": input_name})
-    # put everything to the resulting dictionary
-    details["action"] = action
-    details["method"] = method
-    details["inputs"] = inputs
-    return details
-def submit_form(form_details, url, value):
-    """
-    Submits a form given in `form_details`
-    Params:
-        form_details (list): a dictionary that contain form information
-        url (str): the original URL that contain that form
-        value (str): this will be replaced to all text and search inputs
-    Returns the HTTP Response after form submission
-    """
-    # construct the full URL (if the url provided in action is relative)
-    target_url = urljoin(url, form_details["action"])
-    # get the inputs
-    inputs = form_details["inputs"]
-    data = {}
-    for input in inputs:
-        # replace all text and search values with `value`
-        if input["type"] == "text" or input["type"] == "search":
-            input["value"] = value
-        input_name = input.get("name")
-        input_value = input.get("value")
-        if input_name and input_value:
-            # if input name and value are not None,
-            # then add them to the data of form submission
-            data[input_name] = input_value
+import urllib.parse
+import re
 
-    if form_details["method"] == "post":
-        return requests.post(target_url, data=data)
-    else:
-        # GET request
-        return requests.get(target_url, params=data)
+header={'User-Agent':'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.21 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.21'}
+def get_method (url, params):
+    print('[+] Method: GET')
+    print(f'\t[+] url: {url}')
+    print(f'\t[+] parameter: {params}')
+    script_text_list = re.findall(r'script.*>.*<.*/.*script', str(params).lower())
+    script_text_list = script_text_list + re.findall(r'script.*%3e.*%3c.*/.*script', str(params).lower())
+    _params = urllib.parse.parse_qs(str(params))
+    for key, value in _params.items():
+        _params[key] = value[0]
+    # lay doan script ben trong the script
+    for i in range(0, len(script_text_list)):
+        script_text_list[i] = re.sub(r'script.*>', '', script_text_list[i])
+        script_text_list[i] = re.sub(r'<.*/.*script', '', script_text_list[i])
+        script_text_list[i] = re.sub(r'script.*%3e', '', script_text_list[i])
+        script_text_list[i] = re.sub(r'%3c.*/.*script', '', script_text_list[i])
+    url = url + '?' + params
+    content = requests.get(url, params=_params, headers=header).content.decode().lower()
+    count = 0
+    for script in script_text_list:
+        if re.search(r'<\s*script\s*>' + re.escape(script) + r'<\s*/\s*script\s*>', content) is not None:
+            print("\t[+] Detected XSS ")
+            count += 1
+    print(f'Detect {count} parameter contain XSS in {url} ')
 
+def post_method(url, params):
+    print('[+] Method: POST')
+    print(f'\t[+] url: {url}')
+    print(f'\t[+] parameter: {params}')
+    _data = urllib.parse.parse_qs(str(params))
 
-def scan_xss(url):
-        """
-        Given a `url`, it prints all XSS vulnerable forms and
-        returns True if any is vulnerable, False otherwise
-        """
-        # get all the forms from the URL
-        forms = get_all_forms(url)
-        print(f"[+] Detected {len(forms)} forms on {url}.")
-        js_script = open('payload.txt', 'r').readline()
-        # returning value
-        is_vulnerable = False
-        # iterate over all forms
-        for form in forms:
-            form_details = get_form_details(form)
-            content = submit_form(form_details, url, js_script).content.decode()
-            if js_script in content:
-                print(f"[+] XSS Detected on {url}")
-                print(f"[*] Form details:")
-                pprint(form_details)
-                is_vulnerable = True
-                # won't break because we want to print available vulnerable forms
-        return is_vulnerable
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('url', help='URL')
+    # tim doan xss trong cac tham so
+    script_text_list = []
+    for key, value in _data.items():
+        _data[key] = value[0]
+        temp = value[0].lower()
+        if re.search(r'script.*>.*<.*/.*script', temp) is not None:
+            temp = re.findall(r'script.*>.*<.*/.*script', temp)[0]
+            temp = re.sub(r'script.*>', '', temp)
+            temp = re.sub(r'<.*/.*script', '', temp)
+            script_text_list.append(temp)
+        if re.search(r'script.*%3e.*%3c.*/.*script', temp) is not None:
+            temp = re.findall(r'script.*%3e.*%3ac.*/.*script', temp)[0]
+            temp = re.sub(r'script.*%3e', '', temp)
+            temp = re.sub(r'%3c.*/.*script', '', temp)
+            script_text_list.append(temp)
+    content = requests.post(url, headers=header, data=_data).content.decode().lower()
+    count = 0
+    for script in script_text_list:
+        match = re.findall(r'<\s*script\s*>' + re.escape(script) + r'<\s*/\s*script\s*>', content)
+        if len(match) != 0:
+            print("\t[+] Detected XSS ")
+            count += 1
+    print(f'Detect {count} parameter contain XSS in {url} ')
+
+if __name__ =="__main__":
+    parser = argparse.ArgumentParser(description="option")
+    parser.add_argument('-u', '--Url', help='url', type=str)
+    parser.add_argument('-g', '--GET', type=str, help='Method GET')
+    parser.add_argument('-p', '--POST', type=str, help='Method POST')
     args = parser.parse_args()
-    url = args.url
-    print(scan_xss(url))
+    if args.GET is not None:
+        get_method(args.Url, params=args.GET)
+    elif args.POST is not None:
+        post_method(args.Url, params=args.POST)
