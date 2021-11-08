@@ -47,5 +47,6 @@ if __name__ =="__main__":
 
     if args.GET is not None:
         get_method(args.Url, params=args.GET)
+        
     elif args.POST is not None:
         post_method(args.Url, params=args.POST)
